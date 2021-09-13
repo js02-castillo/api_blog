@@ -1,0 +1,142 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use JWTAuth;
+use Tymon\JWTAuth\Exceptions\JWTException;
+
+class UserController extends Controller
+{
+    public function authenticate(Request $request)
+    {
+        $credentials = $request->only('email', 'password');
+        try {
+            if (!$token = JWTAuth::attempt($credentials)) {
+                return response()->json(['message' => 'invalid_credentials'], 400);
+            }
+        } catch (JWTException $e) {
+            return response()->json(['message' => 'could_not_create_token'], 500);
+        }
+        $user = JWTAuth::user();
+
+        return response()->json(compact('token', 'user'));
+            // ->withCookie(
+            //     'token',
+            //     $token,
+            //     config('jwt.ttl'), // ttl => time to live
+            //     '/', // path
+            //     null, // domain
+            //     config('app.env') !== 'local', // Secure
+            //     true, // httpOnly
+            //     false, //
+            //     config('app.env') !== 'local' ? 'None' : 'Lax' // SameSite
+            // );
+    }
+
+    public function register(Request $request)
+    {
+        $validar= $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:6|confirmed'
+            // 'editorial' => 'required|string',
+            // 'short_bio' => 'required|string',
+            // 'role' => 'required'
+        ]);
+
+        if($validar->fails()){
+            return response()->json($validar->errors->toJson(), 400);
+        }
+        
+        $user =User::create([
+            'name'=>$request('name'),
+            'email'=>$request('email'),
+            'password'=>Hash::make($request->get('password')),
+        ]);
+
+        $token = JWTAuth::fromUser($user);
+        return response()->json(compact('user', 'token'),201);
+    
+
+        // if ($request->role == User::ROLE_USER) {
+
+        //     $userable = Writer::create([
+        //         'editorial' => $request->get('editorial'),
+        //         'short_bio' => $request->get('short_bio'),
+        //     ]);
+        // } else {
+        //     $userable = Admin::create([
+        //         'credential_number' => $request->get('credential_number'),
+        //     ]);
+        // }
+
+        // $user = $userable->user()->create([
+        //     'name' => $request->get('name'),
+        //     'email' => $request->get('email'),
+        //     'password' => Hash::make($request->get('password')),]);
+
+        // $token = JWTAuth::fromUser($user);
+
+        // return response()->json(new UserResource($user, $token), 201)
+        //     ->withCookie(
+        //         'token',
+        //         $token,
+        //         config('jwt.ttl'),
+        //         '/',
+        //         null,
+        //         config('app.env') !== 'local',
+        //         true,
+        //         false,
+        //         config('app.env') !== 'local' ? 'None' : 'Lax'
+        //     );
+    }
+
+    public function getAuthenticatedUser()
+    {
+        try {
+            if (!$user = JWTAuth::parseToken()->authenticate()) {
+                return response()->json(['message' => 'user_not_found'], 404);
+            }
+        } catch (Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
+            return response()->json(['message' => 'token_expired'], $e->getStatusCode());
+        } catch (Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
+            return response()->json(['message' => 'token_invalid'], $e->getStatusCode());
+        } catch (Tymon\JWTAuth\Exceptions\JWTException $e) {
+            return response()->json(['message' => 'token_absent'], $e->getStatusCode());
+        }
+        return response()->json(compact('user'), 200);
+    }
+
+//     public function logout()
+//     {
+//         try {
+//             JWTAuth::invalidate(JWTAuth::getToken());
+
+// //            Cookie::queue(Cookie::forget('token'));
+// //            $cookie = Cookie::forget('token');
+// //            $cookie->withSameSite('None');
+//             return response()->json([
+//                 "status" => "success",
+//                 "message" => "User successfully logged out."
+//             ], 200)
+//                 ->withCookie('token', null,
+//                 config('jwt.ttl'),
+//                 '/',
+//                 null,
+//                 config('app.env') !== 'local',
+//                 true,
+//                 false,
+//                 config('app.env') !== 'local' ? 'None' : 'Lax'
+//             );
+//         } catch (JWTException $e) {
+//             // something went wrong whilst attempting to encode the token
+//             return response()->json(["message" => "No se pudo cerrar la sesión."], 500);
+//         }
+//     }
+
+}
