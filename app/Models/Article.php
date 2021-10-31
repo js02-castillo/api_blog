@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 class Article extends Model
 {
     use HasFactory;
-    protected $fillable=['title','body'];
+    protected $fillable=['title','body','image'];
 
     public static function boot(){
         parent::boot();

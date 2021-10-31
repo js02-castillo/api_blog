@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Article;
+use App\Http\Resources\Article as ArticleResource;
+use App\Http\Resources\ArticleCollection;
+use Illuminate\Support\Facades\Storage;
+
 
 class ArticleController extends Controller
 {
@@ -14,7 +18,7 @@ class ArticleController extends Controller
      */
     public function index()
     {
-        return Article::all();
+        return new ArticleCollection(Article::paginate(5)); 
     }
 
     /**
@@ -35,8 +39,21 @@ class ArticleController extends Controller
      */
     public function store(Request $request)
     {
-        $article= Article::create($request->all());
-        return response()->json($article, 201);
+        $validar = $request->validate([
+            'title' => 'required|string|unique:articles|max:255',
+            'body' => 'required',
+            'image'=> 'required|image|dimensions:min_width=200,min_height=200',
+        ]);
+
+        //$article= Article::create($request->all());
+        $article = new Article($request->all());
+        $path = $request->image->store('public/articles');
+
+        $article->image = 'articles/' . basename($path);
+        //        $path = $request->image->storeAs('public/articles', $request->user()->id . '_' . $article->title . '.' . $request->image->extension());
+        $article->save();
+
+        return response()->json( new ArticleResource($article), 201);
     }
 
     /**
@@ -47,7 +64,7 @@ class ArticleController extends Controller
      */
     public function show(Article $article)
     {
-        return $article;
+        return response()->json(new ArticleResource($article),200);
     }
 
     /**
@@ -84,5 +101,9 @@ class ArticleController extends Controller
     {
         $article->delete();
         return response()->json($article, 204);
+    }
+
+    public function image(Article $article){
+        return response()->download(public_path(Storage::url($article->image)),$article->title);
     }
 }
